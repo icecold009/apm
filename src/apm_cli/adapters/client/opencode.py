@@ -28,6 +28,7 @@ already exists — OpenCode support is opt-in.
 
 import json
 import os
+from copy import deepcopy
 from pathlib import Path
 
 from .copilot import CopilotClientAdapter
@@ -49,6 +50,26 @@ class OpenCodeClientAdapter(CopilotClientAdapter):
     # resolution so this adapter is unchanged by the Copilot security fix;
     # revisit in a follow-up.
     _supports_runtime_env_substitution: bool = False
+
+    # Keys emitted by the canonical Copilot formatter or computed by this
+    # adapter. Any other keys are harness-specific passthrough fields from the
+    # MCP dependency and should remain available to OpenCode.
+    _COPILOT_CONFIG_KEYS = frozenset(
+        {
+            "type",
+            "tools",
+            "id",
+            "command",
+            "args",
+            "env",
+            "url",
+            "headers",
+            "enabled",
+            "environment",
+            "extra",
+            "_extra",
+        }
+    )
 
     def get_config_path(self):
         """Return the path to ``opencode.json`` in the repository root."""
@@ -152,5 +173,17 @@ class OpenCodeClientAdapter(CopilotClientAdapter):
         env = copilot_entry.get("env") or {}
         if env:
             entry["environment"] = dict(env)
+
+        # The parent formatter merges MCP ``extra`` fields into the flat
+        # Copilot config. Preserve those fields instead of silently dropping
+        # them during the schema conversion (for example, OpenCode OAuth
+        # settings or a user-defined option).
+        entry.update(
+            {
+                key: deepcopy(value)
+                for key, value in copilot_entry.items()
+                if key not in OpenCodeClientAdapter._COPILOT_CONFIG_KEYS
+            }
+        )
 
         return entry

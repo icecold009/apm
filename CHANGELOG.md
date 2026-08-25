@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- OpenCode MCP generation now preserves harness-specific passthrough fields,
+  such as OAuth settings, instead of dropping them during schema conversion.
+
 ## [0.29.0] - 2026-08-26
 
 ### Added

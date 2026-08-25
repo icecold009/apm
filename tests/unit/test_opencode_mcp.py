@@ -94,6 +94,47 @@ class TestToOpencodeFormat(unittest.TestCase):
         self.assertNotIn("url", result)
         self.assertEqual(result["environment"], {"KEY": "val"})
 
+    def test_passthrough_fields_are_preserved(self):
+        copilot = {
+            "url": "https://mcp.slack.com/mcp",
+            "oauth": {"clientId": "abc", "callbackPort": 3118},
+            "myField": "somevalue",
+        }
+        result = OpenCodeClientAdapter._to_opencode_format(copilot)
+        self.assertEqual(result["oauth"], {"clientId": "abc", "callbackPort": 3118})
+        self.assertEqual(result["myField"], "somevalue")
+
+    def test_passthrough_fields_are_defensively_copied(self):
+        oauth = {"clientId": "abc", "metadata": {"issuer": "https://example.com"}}
+        copilot = {"url": "https://mcp.slack.com/mcp", "oauth": oauth}
+
+        result = OpenCodeClientAdapter._to_opencode_format(copilot)
+        result["oauth"]["metadata"]["issuer"] = "https://changed.example.com"
+
+        self.assertEqual(oauth["metadata"]["issuer"], "https://example.com")
+
+    def test_canonical_fields_are_not_leaked_as_passthrough(self):
+        copilot = {
+            "command": "npx",
+            "args": ["-y", "pkg"],
+            "env": {"KEY": "val"},
+            "type": "remote",
+            "id": "registry-id",
+            "tools": ["*"],
+            "enabled": False,
+            "environment": {"UNTRUSTED": "value"},
+            "extra": {"enabled": False},
+            "_extra": {"enabled": False},
+        }
+        result = OpenCodeClientAdapter._to_opencode_format(copilot)
+        self.assertEqual(result["type"], "local")
+        self.assertTrue(result["enabled"])
+        self.assertEqual(result["environment"], {"KEY": "val"})
+        self.assertNotIn("id", result)
+        self.assertNotIn("tools", result)
+        self.assertNotIn("extra", result)
+        self.assertNotIn("_extra", result)
+
 
 class TestOpenCodeClientAdapter(unittest.TestCase):
     """Core adapter behaviour for update_config / get_current_config."""
@@ -318,6 +359,23 @@ class TestOpenCodeConfigureMCPServer(unittest.TestCase):
         server = data["mcp"]["test-npm"]
         self.assertEqual(server["type"], "local")
         self.assertEqual(server["environment"], {"MY_TOKEN": "tok"})
+
+    def test_remote_passthrough_fields_are_written(self):
+        server_info = {
+            "name": "slack",
+            "id": "slack-id",
+            "remotes": [{"transport_type": "streamable-http", "url": "https://mcp.slack.com/mcp"}],
+            "packages": [],
+            "_extra": {
+                "oauth": {"clientId": "abc", "callbackPort": 3118},
+                "myField": "somevalue",
+            },
+        }
+        self.adapter.configure_mcp_server("slack", server_info_cache={"slack": server_info})
+        data = json.loads(self.opencode_json.read_text(encoding="utf-8"))
+        server = data["mcp"]["slack"]
+        self.assertEqual(server["oauth"], {"clientId": "abc", "callbackPort": 3118})
+        self.assertEqual(server["myField"], "somevalue")
 
 
 class TestMCPIntegratorOpenCodeStaleCleanup(unittest.TestCase):
