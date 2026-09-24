@@ -31,8 +31,9 @@ class CursorClientAdapter(CopilotClientAdapter):
     mcp_servers_key: str = "mcpServers"
 
     # Cursor resolves ${env:NAME} in command, args, env, url, and headers.
-    # Keep references in the project-local config so secret values stay out
-    # of the working tree. Explicit mcp.env literals remain literal below.
+    # Keep manifest env references native in the project-local config, so
+    # those referenced values are not baked into the file. Explicit mcp.env
+    # literals remain literal below; shared GitHub token injection is separate.
     _supports_runtime_env_substitution: bool = True
 
     def _format_runtime_env_placeholder(self, name: str) -> str:
