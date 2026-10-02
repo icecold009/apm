@@ -7,39 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Fixed
 
-- Issue triage, issue implementation, and PR review now share an ORIGIN x INTENT contract: unattended automations (Agentic Workflows, gh-aw, future scheduled runs) never assign. Actor-session ownership writes are: issue triage none (no assignment needed); issue delivery assign the implementing user as a hard gate; standalone PR review request that user as reviewer (`gh pr edit --add-reviewer @me`), never as assignee. Both advisory panels read the full conversation, no-op unchanged receipts, and refuse advice that contradicts CODEOWNERS.
+- `apm install` reports the original resolution error for a dependency whose git ref cannot be resolved, instead of failing later while annotating the update plan. (#3142)
+- Repeat `apm install` runs keep existing MCP servers from custom (`registry:`) registries instead of reconfiguring them, preserving their authored headers. (#3142)
+
+- `apm audit` discovers tracked and untracked target-native prompts without treating executable commands as prompt text; unreadable or unsupported recognized formats now fail with incomplete coverage, and shared/user configuration cannot be auto-stripped. Review named incomplete or protected locations manually before re-auditing. Proposed `specs/openapm-v0.1.md` audit contract remains subject to specification adoption. -- by @lkshrk (#2962)
+- Cursor MCP configuration now preserves native runtime environment references and authored static values, normalizes scalar environment values, and omits null entries. (by @icecold009, #3070)
+- Global skill installs work through `HOME`/`APM_HOME` directory aliases without relaxing package or destination safety; frozen installs reject ref, pin, provider and transport drift, and unseeded mutable refs resolve upstream. After an intentional declaration change, review it and run `apm install --update`. (by @DaveMeadAdjust, #2876)
+- GitHub MCP authentication now preserves explicit `Authorization` headers and writes the selected environment-variable reference on runtime-capable targets instead of resolving the credential into generated config. (#3103)
+- OpenCode MCP installs and reinstalls preserve an explicitly supplied `enabled` value and JSON type; omitted values still default to `true` - by @dajiaohuang (#3102).
+- `apm compile --target claude` imports dependency-root `CLAUDE.md` files at any metadata-backed materialization depth, including ADO and nested GitLab paths, and resolves transitive imports with redirected `--root` output. Frozen replay also reads the selected installation's lockfile. (by @vyrnsynx, #2952)
+- Codex MCP headers now use native runtime environment references instead of literal placeholders; unsupported references are skipped with a warning. Unchanged reinstalls preserve existing entries; switch the affected header between `${VAR}` and `${env:VAR}` and reinstall with the same scope and targets to refresh an older managed entry. -- by @edenfunf (#3042)
+- Claude MCP redeclarations drop stale transport fields and repair mixed entries when rewritten, while preserving partial updates and unmanaged configuration. -- by @edenfunf (#3041)
+- Cursor rules now use comma-joined `globs` and readable descriptions, while retaining safe escaping for control characters. (by @YGuyomar, #3011)
+- Copilot user-scope installs restore modular `~/.copilot/instructions/**/*.instructions.md` deployment (mirroring the project-scope layout) instead of tracking a single concatenated `copilot-instructions.md`. (by @kilianpaquier, #2317)
+
+## [0.32.0] - 2026-09-25
 
 ### Changed
 
-- `apm --help`, `apm doctor --help`, and `apm config get` no longer import heavyweight command modules (`install`, `audit`, `pack`, `marketplace`, `uninstall`, `update`); those load only when the matching verb is invoked. (#3001)
-- Issue and PR triage GitHub comments are human prose only. Activation cards default `json: off` (omitted is off, not a missing-field stop). `json: on` emits an internal `triage-recommendation` receipt only; never post JSON on GitHub. The Triage Panel agentic workflow passes `json: off` and does not require a JSON tail. The PR Review Panel agentic workflow loads `autopilot-pr-review-scheduler` then runs `autopilot-pr-review-worker` in-thread; it does not compose the merge worker. PR triage auto-applies `status/deferred` when there is no linked `status/accepted` issue, thanks the author, and asks them to open an issue first per CONTRIBUTING.md.
-- Autopilot worker sessions are named `{Domain} {stage} #{n}` (`Issue triage #2993`). No GitHub title.
-- Issue and PR triage sweeps exclude `triage/recommended` and `status/triaged` at GitHub so already-advised open items are not re-listed. Do not write `status/triaged`.
-- Autopilot scheduler `invocation` is the harness: Copilot App is `actor-session`. `agentic-workflow` is only gh-aw / Actions. Do not copy `origin` into `invocation`.
-- Autopilot schedulers must emit a keep-set and drop-set table (number, kind, labels, rationale, slot) before any spawn. Missing column or blank rationale stops the run.
-- Autopilot skill packages live under `packages/autopilot/`. The maintainer map is `packages/autopilot/README.md`.
-- Autopilot skills declare `activation_card: on`. Canonical skills emit Enter before work and Exit after. Schedulers are `write: off`. Workers default `write: on`; `write: off` returns the template without GitHub writes.
-- Autopilot PR-review worker is the advisory panel (formerly `autopilot-pr-review-panel` / `apm-review-panel`). Drive-to-merge is `autopilot-pr-merge-worker` (activation card `path: merge`, `write` default `on`). The PR-review scheduler never comments, labels, assigns, requests reviewers, or composes the merge worker.
-- Autopilot issue and PR triage workers own the advisory comment and processing labels, including when summoned without a scheduler. Schedulers only select work and fan out slots.
-- Autopilot `FANOUT_LIMIT` is concurrent slots, not queue length. Schedulers persist the full helper-selected list and refill a slot when it returns.
-- Issue delivery no longer drops bot-authored issues that already carry `status/accepted`. Human accept is the gate; author type is not.
-- PRINCIPLES.md and remaining autopilot skill assets name the canonical `autopilot-{domain}-{stage}-{role}` skills only.
-- Autopilot queues are `autopilot-issue-triage-scheduler`, `autopilot-issue-delivery-scheduler`, `autopilot-pr-triage-scheduler`, and `autopilot-pr-review-scheduler` (isolated pool default 2). Workers are `autopilot-issue-triage-worker`, `autopilot-issue-delivery-worker`, `autopilot-pr-triage-worker`, `autopilot-pr-review-worker` (advisory), and `autopilot-pr-merge-worker` (drive-to-merge, summoned by name). Issue triage advice is `autopilot-issue-triage-worker`. Schedulers own queue selection (`fetch_queue.py` then `triage_state.py`) and fan-out; if spawn is unavailable they run the worker in-thread, one item at a time. PR triage classifies community PRs (with or without a linked issue) and never merges, assigns, or requests reviewers. PR review is advisory only. Issue delivery queues on `status/accepted` or a named bounded accept, then re-checks `scripts/governance/eligibility.cjs` and requires fresh responsible-human confirmation; unattended ORIGIN never implements. Actor-session assignment is a hard gate for implementation only. Triage request trigger is only `triage/requested`; `status/needs-triage` stays human state.
-
-### Removed
-
-- Compatibility alias skill packages are gone (`apm-triage-panel`, `apm-review-panel`, `autopilot-pr-review-panel`, `apm-issue-autopilot`, `batch-bug-shepherd`, `shepherd-driver`, and the leftover `autopilot-*-scheduler` / `autopilot-*-worker` stubs). Invoke the canonical `autopilot-{domain}-{stage}-{role}` names only.
+- `apm --help`, `apm doctor --help`, and `apm config get` no longer import heavyweight command modules; those load only when the matching command runs. (by @sergio-sisternes-epam, #3001)
 
 ### Fixed
 
-- PR-review scheduler no longer queues every open pull request. A fresh review requires the `panel-review` label (same trigger as the Agentic Workflow), `status/accepted` on the PR, or an explicit named PR list. The reviewing session also requires `status/accepted` on the PR or a linked issue; otherwise scheduler and review-worker stop with no comment. The worker may clear `panel-review`; the scheduler does not comment or change labels. Both also apply a CODEOWNERS last-comment gate: read the last CODEOWNER comment as conditions and evaluate them against later comments AND labels on the PR and linked issues. Drop or `noop` only when those conditions are unmet or unclear. Named list does not bypass that gate.
-- Issue-triage sweep no longer classifies real GitHub bug forms as spam: heading/list line matches no longer swallow the rest of the body after markup strip.
+- `apm prune` removes orphaned manifestless skills while retaining bundles and roots containing needed nested packages. Keep personal files outside `apm_modules/` and preview with `--dry-run`, since personal files inside removable package roots are also deleted. (by @fangkangmi, #3057)
+- `apm install` now rejects incompatible immutable dependency requirements, including inconsistent frozen replay and short SHA pins, instead of silently keeping one version; equivalent tag/SHA pins remain valid. Align root/parent refs, then run `apm install` without `--frozen` to regenerate the lockfile. (#3061)
+- `apm marketplace check` now authenticates bare `owner/repo` sources through the configured default host and standard token chain, so private GitHub and GHES checks honor `GITHUB_APM_PAT`. (by @yfoel, #2917)
+- Copilot hooks declared as `UserPromptSubmit` or `userPromptSubmit` now deploy as `userPromptSubmitted`, so Copilot CLI actually runs them. (by @sheilagithub, #3030)
+- Partial dependency updates preserve deployment targets for refreshed and untouched packages, including `.agents/skills/`, instead of demoting them to `legacy`. (by @Wanming08, #2924)
+- The Unix installer now checks the prebuilt Linux glibc 2.38 minimum and routes older systems to the existing eligible Python/pip fallback before downloading an incompatible binary. (#2931)
+- `apm install` shortens dependency-staging paths by 68 characters to avoid Windows `MAX_PATH` failures in deep checkouts. This does not guarantee arbitrary long-path support. (by @MohammedAlkindi, closes #2896, #2941)
+- Dependency updates preserve marketplace provenance so `plugin@marketplace` uninstall aliases keep working in project and global scope. (by @mfroembgen, #2949)
+- `apm audit` drift replay now discovers root-local primitives with the same source scope as a normal install, rather than treating the scratch deployment directory as the project root. (#3021)
 
 ### Security
 
-- **BREAKING (invalid inputs):** Reject bare `.`/`..` aliases and unsafe symlink destinations; safe dotted aliases and CLI commands/flags are unchanged. Preserve replay placement via optional lock `alias`, without a `lockfile_version` bump. Clients lacking 0.1.41 manifest `$schema` support fail closed on that explicit opt-in; see `specs/openapm-v0.1.md` (`req-mf-025`) and [migration](https://microsoft.github.io/apm/troubleshooting/migration/#rejected-dependency-aliases). - by @Danvs60 (#2901)
+- **BREAKING:** `apm install` rejects bare `.`/`..` aliases and unsafe symlink destinations, and records optional lockfile aliases for replay without changing `lockfile_version`. Replace rejected aliases with a safe name and reinstall; opting into the 0.1.41 manifest schema requires a supporting client (see [migration](https://microsoft.github.io/apm/troubleshooting/migration/#rejected-dependency-aliases)). (by @Danvs60, #2901)
+- The locked build toolchain now uses setuptools 83.0.0 to address Unicode filename mismatches that could bypass `MANIFEST.in` exclusions during source-distribution creation on macOS. (#2893)
 
 ## [0.31.0] - 2026-09-15
 
